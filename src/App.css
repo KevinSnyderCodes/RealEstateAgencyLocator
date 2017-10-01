@@ -1,0 +1,78 @@
+.App-logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 80px;
+}
+
+.App-header {
+  background-color: #222;
+  height: 150px;
+  padding: 20px;
+  color: white;
+}
+
+.App-title {
+  font-size: 1.5em;
+}
+
+.App-intro {
+  font-size: large;
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.App-panel, .content {
+  padding: 15px;
+}
+
+.App-panel {
+  width: 100%;
+
+  text-align: center;
+
+  border-bottom: 1px solid lightgray;
+}
+
+.AddressForm > * {
+  margin: 5px 0;
+}
+
+.AddressForm .address input {
+  width: 300px;
+  max-width: 100%;
+}
+
+.AddressForm .address input.isSet {
+  background-color: #C1FFC1;
+}
+
+.AddressForm .buttons .icon {
+  width: 25px;
+  height: 25px;
+}
+
+.AddressForm .buttons * {
+  margin: 0 5px;
+}
+
+.agency > * {
+  margin-bottom: 0px;
+}
+
+@media screen and (min-width: 800px) {
+  .App-panel {
+    position: fixed;
+    width: 350px;
+    height: 100%;
+
+    border-bottom: none;
+    border-right: 1px solid lightgray;
+  }
+
+  .content {
+    margin-left: 350px;
+    padding: 30px;
+  }
+}
