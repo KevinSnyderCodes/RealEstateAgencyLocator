@@ -1,3 +1,6 @@
+// Google Maps API is loaded in index.html, but React
+// doesn't know this. Let React know that the google
+// variable exists and won't cause undefined errors.
 /* global google */
 
 import React, { Component } from 'react';
@@ -10,13 +13,6 @@ const TEN_MILES_IN_METERS = 16093; // Slightly under 10 miles
 function sum(a, b) {
   return a + b;
 }
-function metersToMiles(n) {
-     return n * 0.000621371192;
-}
-
-// Google Maps
-
-var austin = new google.maps.LatLng(30.311243, -97.748604);
 
 // React
 
@@ -42,7 +38,6 @@ class Address extends Component {
   }
 
   handleChange() {
-    console.log("handleChange", this.autocomplete);
     this.autocomplete.set('place', undefined);
     this.setState(() => {
       return {
@@ -103,7 +98,6 @@ class AddressForm extends Component {
   }
 
   submit(event) {
-    console.log("submit");
     event.preventDefault();
     let places = [];
     for (var i = 0; i < this.state.numAddresses; i++) {
@@ -155,7 +149,6 @@ class Results extends Component {
 
   componentDidMount() {
     this.map = new google.maps.Map(document.getElementById('map'), {
-      center: austin,
       zoom: 8
     });
     this.placesService = new google.maps.places.PlacesService(this.map);
@@ -170,10 +163,12 @@ class Results extends Component {
       };
     });
 
+    // "this" scope can't be accessed from within the Promise
+    // inside processPlace(), so we make it accessible from
+    // the outer function scope.
     const service = this.placesService;
 
     const agencies = [];
-    const set = new Set();
 
     function processPlace(place) {
       return new Promise((resolve, reject) => {
@@ -189,14 +184,12 @@ class Results extends Component {
         service.textSearch(request, (results, status, pagination) => {
           for (let i = 0; i < results.length; i++) {
             let result = results[i];
-            console.log(result);
             // Google Maps API includes hotels in a search for
             // 'real_estate_agency'. A proper agency wouldn't
             // have 'lodging', so ignore any results with that
             // type.
-            if (result.types.indexOf("lodging") === -1 && !set.has(result.place_id)) {
+            if (result.types.indexOf("lodging") === -1) {
               agencies.push(result);
-              set.add(result.place_id);
             }
           }
           if (pagination.hasNextPage) {
@@ -209,37 +202,43 @@ class Results extends Component {
       });
     }
 
+    // Used to sort agencies by sum of distances from addresses,
+    // in ascending order.
     function compareSumDistance(a, b) {
       let sumA = a.distanceFromAddress.reduce(sum);
       let sumB = b.distanceFromAddress.reduce(sum);
       return sumA > sumB;
     }
 
+    const set = new Set();
+
     let functionSeries = places.map((place) => {
-      return () => {
-        return processPlace(place);
-      };
+      return processPlace(place);
     });
-    functionSeries.reduce((prev, curr) => {
-      return prev.then(curr);
-    }, Promise.resolve())
+    Promise.all(functionSeries)
     .then(() => {
-      console.log("All promises fulfilled!", agencies.length);
-      // Remove locations too far away, and get distance from
-      // addresses at the same time
+      // Remove locations too far away, as well as duplicate agencies,
+      // and get distance from addresses at the same time.
       for (let i = 0; i < agencies.length; i++) {
-        agencies[i].distanceFromAddress = [];
-        let inRange = false;
-        for (let j = 0; j < places.length; j++) {
-          agencies[i].distanceFromAddress[j] = google.maps.geometry.spherical.computeDistanceBetween(
-            agencies[i].geometry.location,
-            places[j].geometry.location
-          );
-          inRange = inRange || agencies[i].distanceFromAddress[j] < TEN_MILES_IN_METERS;
-        }
-        if (!inRange) {
+        if (set.has(agencies[i].place_id)) {
           agencies.splice(i, 1);
           i--;
+        }
+        else {
+          set.add(agencies[i].place_id);
+          agencies[i].distanceFromAddress = [];
+          let inRange = false;
+          for (let j = 0; j < places.length; j++) {
+            agencies[i].distanceFromAddress[j] = google.maps.geometry.spherical.computeDistanceBetween(
+              agencies[i].geometry.location,
+              places[j].geometry.location
+            );
+            inRange = inRange || agencies[i].distanceFromAddress[j] < TEN_MILES_IN_METERS;
+          }
+          if (!inRange) {
+            agencies.splice(i, 1);
+            i--;
+          }
         }
       }
       // Sort locations by sum of distances
@@ -279,6 +278,10 @@ class Results extends Component {
 
 class Agency extends Component {
   formatDistance(data) {
+    function metersToMiles(n) {
+         return n * 0.000621371192;
+    }
+
     let totalDistance = data.distanceFromAddress.reduce(sum);
     return parseFloat(Math.round(metersToMiles(totalDistance) * 100) / 100).toFixed(2);
   }
@@ -304,7 +307,6 @@ class App extends Component {
   }
 
   sendPlacesToResults(places) {
-    console.log("sendPlacesToResults");
     this.results.processPlaces(places);
   }
 
